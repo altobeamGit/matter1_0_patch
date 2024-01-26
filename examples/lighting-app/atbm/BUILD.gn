@@ -1,0 +1,85 @@
+# Copyright (c) 2020 Project CHIP Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//build_overrides/build.gni")
+import("//build_overrides/chip.gni")
+
+import("${build_root}/config/defaults.gni")
+import("${chip_root}/src/platform/device.gni")
+
+assert(current_os == "freertos")
+
+examples_plat_dir = "${chip_root}/examples/platform/atbm"
+examples_plat_common_dir = "${chip_root}/examples/platform/atbm/common"
+examples_plat_shell_dir = "${chip_root}/examples/platform/atbm/shell"
+
+static_library("Matter") {
+  sources = [
+    "include/AppEvent.h",
+    "include/AppTask.h",
+    "include/DeviceCallbacks.h",
+    "include/LEDWidget.h",
+    "include/Button.h",
+    "AppTask.cpp",
+    "DeviceCallbacks.cpp",
+    "LEDWidget.cpp",
+    "Button.cpp",
+    "main.cpp",
+    "${examples_plat_common_dir}/ATBMAppServer.h",
+    "${examples_plat_common_dir}/CHIPDeviceManager.h",
+    "${examples_plat_common_dir}/CommonDeviceCallbacks.h",
+    "${examples_plat_common_dir}/CommissionableInit.h",
+    "${examples_plat_common_dir}/ExampleCommissionableDataProvider.h",
+    "${examples_plat_common_dir}/ATBMAppServer.cpp",
+    "${examples_plat_common_dir}/CHIPDeviceManager.cpp",
+    "${examples_plat_common_dir}/CommonDeviceCallbacks.cpp",
+    "${examples_plat_common_dir}/CommissionableInit.cpp",
+    "${examples_plat_common_dir}/ExampleCommissionableDataProvider.cpp",
+    "${examples_plat_shell_dir}/launch_shell.h",
+    "${examples_plat_shell_dir}/launch_shell.cpp",
+  ]
+
+  deps = [
+    "${chip_root}/examples/lighting-app/lighting-common",
+    "${chip_root}/examples/providers:device_info_provider",
+    "${chip_root}/src/lib",
+    "${chip_root}/src/setup_payload",
+  ]
+
+  include_dirs = [ 
+    "include",
+    "${examples_plat_dir}",
+    "${examples_plat_common_dir}",
+    "${examples_plat_shell_dir}",
+    "${chip_root}/third_party/atbm",
+    "${chip_root}/src/platform/atbm/easyflash/inc",
+    "${chip_root}/src/platform/atbm/easyflash/plugins/types",
+    "${chip_root}/src/platform/atbm/easyflash/plugins/types/struct2json/inc",
+  ]
+  
+  cflags_cc = [
+    "-Wno-format",
+    "-Wno-format-nonliteral",
+    "-Wno-format-security",
+    "-fpermissive",
+  ]
+
+  output_name = "libMatter"
+  output_dir = "${root_out_dir}/lib"
+  complete_static_lib = true
+}
+
+group("default") {
+  deps = [ ":Matter" ]
+}
