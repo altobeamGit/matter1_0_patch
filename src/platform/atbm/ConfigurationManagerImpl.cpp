@@ -144,12 +144,18 @@ CHIP_ERROR ConfigurationManagerImpl::GetProductLabel(char * buf, size_t bufSize)
 
 CHIP_ERROR ConfigurationManagerImpl::GetSoftwareVersionString(char * buf, size_t bufSize)
 {
-    return CHIP_ERROR_UNSUPPORTED_CHIP_FEATURE;
+    size_t version_string_size = strlen(CHIP_DEVICE_CONFIG_DEVICE_SOFTWARE_VERSION_STRING);
+    memset(buf, 0, bufSize);
+    ReturnErrorCodeIf(bufSize < version_string_size, CHIP_ERROR_BUFFER_TOO_SMALL);
+    ReturnErrorCodeIf(version_string_size > ConfigurationManager::kMaxSoftwareVersionStringLength, CHIP_ERROR_INTERNAL);
+    strcpy(buf, CHIP_DEVICE_CONFIG_DEVICE_SOFTWARE_VERSION_STRING);
+    return CHIP_NO_ERROR;
 }
 
 CHIP_ERROR ConfigurationManagerImpl::GetSoftwareVersion(uint32_t & softwareVer)
 {
-    return CHIP_ERROR_UNSUPPORTED_CHIP_FEATURE;
+    softwareVer = CHIP_CONFIG_SOFTWARE_VERSION_NUMBER;
+    return CHIP_NO_ERROR;
 
 }
 

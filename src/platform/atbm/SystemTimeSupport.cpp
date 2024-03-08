@@ -38,7 +38,7 @@ ClockImpl gClockImpl;
 
 Microseconds64 ClockImpl::GetMonotonicMicroseconds64(void)
 {
-    return Clock::Microseconds64(::hal_get_os_ms_time());
+    return Clock::Microseconds64(::hal_get_os_us_time());
 }
 
 Milliseconds64 ClockImpl::GetMonotonicMilliseconds64(void)

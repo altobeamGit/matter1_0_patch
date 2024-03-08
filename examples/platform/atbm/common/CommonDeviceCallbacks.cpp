@@ -56,9 +56,11 @@ void CommonDeviceCallbacks::DeviceEventCallback(const ChipDeviceEvent * event, i
         break;
 
     case DeviceEventType::kThreadConnectivityChange:
+	ChipLogProgress(DeviceLayer, "Thread connection changed");
 #if CONFIG_ENABLE_OTA_REQUESTOR
         if (event->ThreadConnectivityChange.Result == kConnectivity_Established && !isOTAInitialized)
         {
+	    ChipLogProgress(DeviceLayer, "start InitOTARequestor");
             OTAHelpers::Instance().InitOTARequestor();
             isOTAInitialized = true;
         }
@@ -110,9 +112,14 @@ void CommonDeviceCallbacks::OnInternetConnectivityChange(const ChipDeviceEvent *
 #if CONFIG_ENABLE_OTA_REQUESTOR
         if (!isOTAInitialized)
         {
+	    ChipLogProgress(DeviceLayer, "IPV4 connected, InitOTARequestor...");
             OTAHelpers::Instance().InitOTARequestor();
             isOTAInitialized = true;
         }
+	else
+	{
+	    ChipLogProgress(DeviceLayer, "IPV4 OTA has inited...");
+	}
 #endif
     }
     else if (event->InternetConnectivityChange.IPv4 == kConnectivity_Lost)
@@ -131,9 +138,14 @@ void CommonDeviceCallbacks::OnInternetConnectivityChange(const ChipDeviceEvent *
 #if CONFIG_ENABLE_OTA_REQUESTOR
         if (!isOTAInitialized)
         {
+	    ChipLogProgress(DeviceLayer, "IPV6 connected, InitOTARequestor...");
             OTAHelpers::Instance().InitOTARequestor();
             isOTAInitialized = true;
         }
+	else
+	{
+	    ChipLogProgress(DeviceLayer, "IPV6 OTA has inited...");
+	}
 #endif
     }
     else if (event->InternetConnectivityChange.IPv6 == kConnectivity_Lost)

@@ -113,6 +113,7 @@ void atbm_wifi_stopap_call_task(void);
 void atbm_wifi_start_station_call_task(void);
 void atbm_wifi_stop_station_call_task(void);
 unsigned int hal_get_os_ms_time(void);
+unsigned int hal_get_os_us_time(void);
 int random_get_bytes(u8 *buf, size_t len);
 struct netif *atbm_wifi_get_sta_netif(void);
 void atbm_console_matter_cmd_register(atbm_wifi_matter_cmd_cb_t matter_cmd_handler);
@@ -121,6 +122,9 @@ u8 atbm_wifi_is_iftype_station(void);
 void atbm_wifi_matter_event_handler_register(atbm_wifi_matter_event_cb_t event_cb);
 void atbm_wifi_disconnect_call_task(void);
 u16 atbm_wifi_get_disconn_reason_code(void);
+int HAL_Firmware_Persistence_Start(void);
+int HAL_Firmware_Persistence_Write_By_Matter(unsigned char *buffer, unsigned int length);
+int HAL_Firmware_Persistence_Stop(void);
 
 #define iot_printf printf
 

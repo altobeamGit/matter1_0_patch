@@ -17,30 +17,24 @@
 
 #include <app/clusters/ota-requestor/OTADownloader.h>
 #include <app/clusters/ota-requestor/OTARequestorInterface.h>
-#include <platform/CHIPDeviceEvent.h>
+#include <lib/support/logging/CHIPLogging.h>
 
 #include "OTAImageProcessorImpl.h"
 #include "lib/core/CHIPError.h"
+#include "atbm_general.h"
 
 using namespace chip::System;
 using namespace ::chip::DeviceLayer::Internal;
 
 namespace chip {
+namespace {
 
-int ota_finalize()
+void HandleRestart(Layer * systemLayer, void * appState)
 {
-    return -1;
+    hal_sys_reboot();
 }
 
-int ota_write(uint8_t *data, uint32_t size)
-{
-    return -1;
-}
-
-int ota_abort()
-{
-    return -1;
-}
+} // namespace
 
 bool OTAImageProcessorImpl::IsFirstImageRun()
 {
@@ -76,35 +70,39 @@ CHIP_ERROR OTAImageProcessorImpl::ConfirmCurrentImage()
 
 CHIP_ERROR OTAImageProcessorImpl::PrepareDownload()
 {
+    ChipLogProgress(SoftwareUpdate, "Prepare download");
     DeviceLayer::PlatformMgr().ScheduleWork(HandlePrepareDownload, reinterpret_cast<intptr_t>(this));
     return CHIP_NO_ERROR;
 }
 
 CHIP_ERROR OTAImageProcessorImpl::Finalize()
 {
+    ChipLogProgress(SoftwareUpdate, "Finalize");
     DeviceLayer::PlatformMgr().ScheduleWork(HandleFinalize, reinterpret_cast<intptr_t>(this));
     return CHIP_NO_ERROR;
 }
 
 CHIP_ERROR OTAImageProcessorImpl::Apply()
 {
+    ChipLogProgress(SoftwareUpdate, "Apply");
     DeviceLayer::PlatformMgr().ScheduleWork(HandleApply, reinterpret_cast<intptr_t>(this));
     return CHIP_NO_ERROR;
 }
 
 CHIP_ERROR OTAImageProcessorImpl::Abort()
 {
+    ChipLogProgress(SoftwareUpdate, "Abort");
     DeviceLayer::PlatformMgr().ScheduleWork(HandleAbort, reinterpret_cast<intptr_t>(this));
     return CHIP_NO_ERROR;
 }
 
 CHIP_ERROR OTAImageProcessorImpl::ProcessBlock(ByteSpan & block)
 {
-    if ((nullptr == block.data()) || block.empty())
+    ChipLogProgress(SoftwareUpdate, "Process Block");
+    if ((block.data() == nullptr) || block.empty())
     {
         return CHIP_ERROR_INVALID_ARGUMENT;
     }
-
     CHIP_ERROR err = SetBlock(block);
     if (err != CHIP_NO_ERROR)
     {
@@ -129,10 +127,14 @@ void OTAImageProcessorImpl::HandlePrepareDownload(intptr_t context)
         return;
     }
 
-    imageProcessor->mParams.downloadedBytes = 0;
-    imageProcessor->mParams.totalFileBytes = 0;
+    ChipLogProgress(SoftwareUpdate, "OTA address space will be upgraded");
+    int err = HAL_Firmware_Persistence_Start();
+    if (err != 0)
+    {
+        imageProcessor->mDownloader->OnPreparedForDownload(CHIP_ERROR_INTERNAL);
+        return;
+    }
     imageProcessor->mHeaderParser.Init();
-
     imageProcessor->mDownloader->OnPreparedForDownload(CHIP_NO_ERROR);
 }
 
@@ -144,37 +146,14 @@ void OTAImageProcessorImpl::HandleFinalize(intptr_t context)
         ChipLogError(SoftwareUpdate, "ImageProcessor context is null");
         return;
     }
-
-    //if ota failed
-    if (ota_finalize() < 0)
+    int err = HAL_Firmware_Persistence_Stop();
+    if (err != 0)
     {
-        imageProcessor->mDownloader->EndDownload(CHIP_ERROR_WRITE_FAILED);
         ChipLogProgress(SoftwareUpdate, "OTA image verification error");
-    }
-    else
-    {
-        ChipLogProgress(SoftwareUpdate, "OTA image downloaded");
-    }
-
-    imageProcessor->ReleaseBlock();
-}
-
-void OTAImageProcessorImpl::HandleApply(intptr_t context)
-{
-    auto * imageProcessor = reinterpret_cast<OTAImageProcessorImpl *>(context);
-
-    if (imageProcessor == nullptr)
-    {
         return;
     }
-
-    DeviceLayer::SystemLayer().StartTimer(
-        System::Clock::Seconds32(2),
-        [](Layer *, void *) {
-            ChipLogProgress(SoftwareUpdate, "Rebooting...");
-            hal_system_reboot();
-        },
-        nullptr);
+    imageProcessor->ReleaseBlock();
+    ChipLogProgress(SoftwareUpdate, "OTA image downloaded and written to flash");
 }
 
 void OTAImageProcessorImpl::HandleAbort(intptr_t context)
@@ -186,27 +165,7 @@ void OTAImageProcessorImpl::HandleAbort(intptr_t context)
         return;
     }
 
-    ota_abort();
-
     imageProcessor->ReleaseBlock();
-}
-
-CHIP_ERROR OTAImageProcessorImpl::ProcessHeader(ByteSpan & block)
-{
-    if (mHeaderParser.IsInitialized())
-    {
-        OTAImageHeader header;
-        CHIP_ERROR error = mHeaderParser.AccumulateAndDecode(block, header);
-
-        // Need more data to decode the header
-        ReturnErrorCodeIf(error == CHIP_ERROR_BUFFER_TOO_SMALL, CHIP_NO_ERROR);
-        ReturnErrorOnFailure(error);
-
-        mParams.totalFileBytes = header.mPayloadSize;
-        mHeaderParser.Clear();
-    }
-
-    return CHIP_NO_ERROR;
 }
 
 void OTAImageProcessorImpl::HandleProcessBlock(intptr_t context)
@@ -228,20 +187,28 @@ void OTAImageProcessorImpl::HandleProcessBlock(intptr_t context)
     CHIP_ERROR error = imageProcessor->ProcessHeader(block);
     if (error != CHIP_NO_ERROR)
     {
-        iot_printf("Failed to process OTA image header\n");
+        ChipLogError(SoftwareUpdate, "Failed to process OTA image header");
         imageProcessor->mDownloader->EndDownload(error);
         return;
     }
 
-    int8_t err = ota_write(block.data(), block.size());
+    int err = HAL_Firmware_Persistence_Write_By_Matter((unsigned char *)block.data(), block.size());
     if (err != 0)
     {
-        iot_printf("ota_write failed\n");
+        ChipLogError(SoftwareUpdate, "ATBM OTA Write failed");
         imageProcessor->mDownloader->EndDownload(CHIP_ERROR_WRITE_FAILED);
         return;
     }
     imageProcessor->mParams.downloadedBytes += block.size();
     imageProcessor->mDownloader->FetchNextData();
+}
+
+void OTAImageProcessorImpl::HandleApply(intptr_t context)
+{
+    auto * imageProcessor = reinterpret_cast<OTAImageProcessorImpl *>(context);
+    ChipLogError(SoftwareUpdate, "Update completly,will reboot");
+    // HandleApply is called after delayed action time seconds are elapsed, so it would be safe to schedule the restart
+    DeviceLayer::SystemLayer().StartTimer(System::Clock::Milliseconds32(2 * 1000), HandleRestart, nullptr);
 }
 
 CHIP_ERROR OTAImageProcessorImpl::SetBlock(ByteSpan & block)
@@ -280,6 +247,24 @@ CHIP_ERROR OTAImageProcessorImpl::ReleaseBlock()
         Platform::MemoryFree(mBlock.data());
     }
     mBlock = MutableByteSpan();
+    return CHIP_NO_ERROR;
+}
+
+CHIP_ERROR OTAImageProcessorImpl::ProcessHeader(ByteSpan & block)
+{
+    if (mHeaderParser.IsInitialized())
+    {
+        OTAImageHeader header;
+        CHIP_ERROR error = mHeaderParser.AccumulateAndDecode(block, header);
+
+        // Need more data to decode the header
+        ReturnErrorCodeIf(error == CHIP_ERROR_BUFFER_TOO_SMALL, CHIP_NO_ERROR);
+        ReturnErrorOnFailure(error);
+
+        mParams.totalFileBytes = header.mPayloadSize;
+        mHeaderParser.Clear();
+    }
+
     return CHIP_NO_ERROR;
 }
 

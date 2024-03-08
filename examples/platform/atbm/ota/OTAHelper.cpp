@@ -48,7 +48,8 @@ OTAImageProcessorImpl gImageProcessor;
 chip::Optional<bool> gRequestorCanConsent;
 static chip::ota::UserConsentState gUserConsentState = chip::ota::UserConsentState::kUnknown;
 chip::ota::DefaultOTARequestorUserConsent gUserConsentProvider;
-
+//uint32_t gPeriodicQueryTimeoutSec = 0;
+//uint32_t gWatchdogTimeoutSec = 0;
 } // namespace
 
 bool CustomOTARequestorDriver::CanConsent()
@@ -56,25 +57,26 @@ bool CustomOTARequestorDriver::CanConsent()
     return gRequestorCanConsent.ValueOr(DeviceLayer::ExtendedOTARequestorDriver::CanConsent());
 }
 
-static void InitOTARequestorHandler(System::Layer * systemLayer, void * appState)
+void OTAHelpers::InitOTARequestor()
 {
+    ChipLogProgress(DeviceLayer, "InitOTARequestorHandler...");
     SetRequestorInstance(&gRequestorCore);
+
+    //gRequestorUser.SetPeriodicQueryTimeout(gPeriodicQueryTimeoutSec);
+    //gRequestorUser.SetWatchdogTimeout(gWatchdogTimeoutSec);
+
     gRequestorStorage.Init(Server::GetInstance().GetPersistentStorage());
     gRequestorCore.Init(Server::GetInstance(), gRequestorStorage, gRequestorUser, gDownloader);
+    gRequestorUser.Init(&gRequestorCore, &gImageProcessor);
+
     gImageProcessor.SetOTADownloader(&gDownloader);
     gDownloader.SetImageProcessorDelegate(&gImageProcessor);
-    gRequestorUser.Init(&gRequestorCore, &gImageProcessor);
 
     if (gUserConsentState != chip::ota::UserConsentState::kUnknown)
     {
-        gUserConsentProvider.SetUserConsentState(gUserConsentState);
+	ChipLogProgress(DeviceLayer, "SetUserConsent--->");
+        gUserConsentProvider.SetUserConsentState(gUserConsentState); 
         gRequestorUser.SetUserConsentDelegate(&gUserConsentProvider);
     }
-}
-
-void OTAHelpers::InitOTARequestor()
-{
-    chip::DeviceLayer::SystemLayer().StartTimer(chip::System::Clock::Seconds32(kInitOTARequestorDelaySec), InitOTARequestorHandler,
-                                                nullptr);
 }
 

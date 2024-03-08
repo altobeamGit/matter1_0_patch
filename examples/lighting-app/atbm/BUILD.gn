@@ -23,6 +23,7 @@ assert(current_os == "freertos")
 examples_plat_dir = "${chip_root}/examples/platform/atbm"
 examples_plat_common_dir = "${chip_root}/examples/platform/atbm/common"
 examples_plat_shell_dir = "${chip_root}/examples/platform/atbm/shell"
+examples_plat_ota_dir = "${chip_root}/examples/platform/atbm/ota"
 
 static_library("Matter") {
   sources = [
@@ -74,6 +75,16 @@ static_library("Matter") {
     "-Wno-format-security",
     "-fpermissive",
   ]
+
+  if (chip_enable_ota_requestor){
+    sources += [
+      "${examples_plat_ota_dir}/OTAHelper.h",
+      "${examples_plat_ota_dir}/OTAHelper.cpp",
+    ]
+    cflags_cc += [
+      "-DCONFIG_ENABLE_OTA_REQUESTOR=1",
+    ]
+  }
 
   output_name = "libMatter"
   output_dir = "${root_out_dir}/lib"

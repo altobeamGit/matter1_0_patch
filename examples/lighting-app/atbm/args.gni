@@ -25,13 +25,15 @@ lwip_platform = "external"
 chip_stack_lock_tracking = "none"
 
 #chip_enable_schema_check = true
-#chip_detail_logging = false
 chip_build_tests = false
 chip_build_libshell = true
 chip_config_network_layer_ble = false
 chip_inet_config_enable_tun_endpoint = true
 chip_inet_config_enable_tcp_endpoint = true
 chip_inet_config_enable_udp_endpoint = true
+chip_enable_ota_requestor = true
+chip_device_config_device_software_version_string = "1.0"
+chip_config_software_version_number = 1
 
 atbm_sdk_target = get_label_info(":sdk", "label_no_toolchain")
 
